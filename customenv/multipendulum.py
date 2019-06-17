@@ -25,6 +25,8 @@ class Result(Structure):
 class MultiPendulum():
     def __init__(self):
         env = cdll.LoadLibrary("./customenv/build/libMultiPendulum.so")
+        self.name = "MultiPendulum"
+
         self._reset = env._Z5resetv
         self._step = env._Z4step6Action
         self._render = env._Z6renderv

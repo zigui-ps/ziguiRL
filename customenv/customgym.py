@@ -49,6 +49,7 @@ class GymInterface():
 class PythonGym():
     def __init__(self, name, limit = -1):
         self.env = gym.make(name)
+        self.name = name
         self.last_state = self.env.reset()
         self._step = 0
         self._limit = limit

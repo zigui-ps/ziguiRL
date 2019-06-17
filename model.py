@@ -41,6 +41,13 @@ class Actor():
         loss.backward(retain_graph=retain_graph)
         self._opt.step()
 
+    def set_ckpt(self, ckpt):
+        assert('actor' in ckpt)
+        self._network.load_state_dict(ckpt['actor'])
+
+    def get_ckpt(self):
+        return {'actor' : self._network.state_dict()}
+
 # Critic has:
 # policy network(network)
 # network optimizer(opt)
@@ -68,3 +75,11 @@ class Critic():
         self._opt.zero_grad()
         loss.backward(retain_graph=retain_graph)
         self._opt.step()
+    
+    def set_ckpt(self, ckpt):
+        assert('critic' in ckpt)
+        self._network.load_state_dict(ckpt['critic'])
+
+    def get_ckpt(self):
+        return {'critic' : self._network.state_dict()}
+

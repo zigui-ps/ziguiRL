@@ -3,35 +3,38 @@ from replaybuffer import ReplayBuffer
 import torch
 
 class AgentInterface():
-    def __init__(self, env, actor, critic, args):
+    def __init__(self, env, actor, critic, args, render):
         self.env = env
         self.actor = actor
         self.critic = critic
-        self.args = args
-        self.state_normalizer = ClassicModifier() if 'modifier' not in args else args['modifier']
         self._episodes = 0
+        self.render = render
+        self.set_args(args)
 
+    def set_args(self, args):
+        self._args = args
+        
+        self.state_modifier = ClassicModifier() if 'modifier' not in args else args['modifier']
+        self._memory = [self.actor, self.critic, self.state_modifier]
+        
         assert('steps' in args)
         self.steps = args['steps']
         
-
     def get_replay_buffer(self):
         total_score, steps, n = 0, 0, 0
         replay_buffer = ReplayBuffer()
         while steps < self.steps:
             self._episodes += 1
             n += 1
-            state = self.state_normalizer.apply(self.env.reset())
+            state = self.state_modifier.apply(self.env.reset())
             score = 0
             while True: # timelimits
-                #if n == 1: 
-                self.env.render()
+                if n == 1 and self.render: self.env.render()
                 action = self.actor.get_action(state)
                 next_state, reward, done, tl, _ = self.env.step(action)
-                next_state = self.state_normalizer.apply(next_state)
+                next_state = self.state_modifier.apply(next_state)
                 
-                if tl:
-                    reward += self.critic.get_values(next_state).detach()[0]
+                if tl: reward += self.critic.get_values(next_state).detach()[0]
                 
                 score += reward
                 replay_buffer.append(state, action, reward, done)
@@ -49,12 +52,25 @@ class AgentInterface():
         assert(False)
 
     def next_action(self, state):
-        state = self.state_normalizer.modify(state)
-        return self.actor.action(state)
+        state = self.state_modifier.modify(state)
+        return self.actor.get_action(state)
+
+    def get_ckpt(self):
+        ckpt = {'args' : self._args, 'episodes' : self._episodes}
+        for mem in self._memory: ckpt.update(mem.get_ckpt())
+        return ckpt
+
+    def set_ckpt(self, ckpt):
+        self._episodes = ckpt['episodes']
+        self.set_args(ckpt['args'])
+        for mem in self._memory: mem.set_ckpt(ckpt)
 
 class PPOAgent(AgentInterface):
-    def __init__(self, env, actor, critic, args):
-        super(PPOAgent, self).__init__(env, actor, critic, args)
+    def __init__(self, env, actor, critic, args, render):
+        super(PPOAgent, self).__init__(env, actor, critic, args, render)
+        
+    def set_args(self, args):
+        super(PPOAgent, self).set_args(args)
 
         assert('gamma' and 'lamda' in args)
         self.gamma = args['gamma']
@@ -115,13 +131,11 @@ class PPOAgent(AgentInterface):
                     self.critic.apply_loss(loss, retain_graph=False)
 
 class VanilaAgent(AgentInterface):
-    def __init__(self, env, actor, critic, args):
-        super(VanilaAgent, self).__init__(env, actor, critic, args)
-        assert('gamma' and 'lamda' and 'batch_size' in args)
-        self.gamma = args['gamma']
-
-    def train(self):
-        for _ in range(15000): # train step
+    def __init__(self, env, actor, critic, args, render):
+        super(VanilaAgent, self).__init__(env, actor, critic, args, render)
+        
+    def train(self, train_step):
+        for _ in range(train_step): # train step
             self.actor.mode_eval()
             self.critic.mode_eval()
 
@@ -138,4 +152,10 @@ class VanilaAgent(AgentInterface):
             loss = -(returns * log_policy).mean()
             
             self.actor.apply_loss(loss)
+
+    def set_args(self, args):
+        super(PPOAgent, self).set_args(args)
+
+        assert('gamma' in args)
+        self.gamma = args['gamma']
 
