@@ -39,13 +39,13 @@ def main():
     o_size = env.observation_size()[0]
     a_size = env.action_size()[0]
 
-    actor_network = deepnetwork.CNN([o_size, 64, 64, a_size], "actor")
-    actor_opt = optim.Adam(actor_network.parameters(), lr=0.0003) # actor lr_rate
+    actor_network = deepnetwork.CNN([o_size, 128, 128, a_size], "actor")
+    actor_opt = optim.Adam(actor_network.parameters(), lr=0.0001) # actor lr_rate
 
     actor = Actor(actor_network, actor_opt, distribution.GaussianDistribution)
     
-    critic_network = deepnetwork.CNN([o_size, 64, 64, 1], "critic")
-    critic_opt = optim.Adam(critic_network.parameters(), lr=0.0003, # critic lr_rate
+    critic_network = deepnetwork.CNN([o_size, 128, 128, 1], "critic")
+    critic_opt = optim.Adam(critic_network.parameters(), lr=0.0001, # critic lr_rate
                               weight_decay=0.001) # critie lr_rate2
     critic = Critic(critic_network, critic_opt)
         
@@ -63,8 +63,10 @@ def main():
     print("Start Training: PPO")
     for i in range(args.train_step):
         agent.train(train_step = 1)
-        filename = 'ckpt_{}_{}_{}'.format(env.name, args.name, i)
-        torch.save(agent.get_ckpt(), os.path.join(model_path, filename))
+        file_name = 'ckpt_{}_{}_{}'.format(env.name, args.name, i)
+        path = os.path.join(model_path, file_name)
+        torch.save(agent.get_ckpt(), path)
+        print("saved at {}".format(path))
     
     print("End Training: PPO")
 
@@ -74,7 +76,7 @@ def main():
 
         action = agent.next_action(state)
         state, _, done, _, _ = env.step(action)
-        sleep(0.05)
+#        sleep(0.05)
         if done:
             print("END")
             state = env.reset()

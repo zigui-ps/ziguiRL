@@ -20,6 +20,10 @@ class Actor():
         mu = self._network(state)
         return self._dist.sample(mu)
         
+    def get_action_nodist(self, state):
+        mu = self._network(state).detach()
+        return mu
+        
     # return log_density of policy
     # input: states(torch.Tensor(state array: size = [:][state])
     # actions(torch.Tensor(action array: size = [:][action])
