@@ -45,7 +45,7 @@ class AgentInterface():
 
             replay_buffer.path_finish()
         
-        print("episodes: {}, score: {}".format(self._episodes, total_score / n))
+        print("episodes: {}, score: {}, avg steps: {}, avg reward {}".format(self._episodes, total_score / n, steps / n, total_score / steps))
         return replay_buffer
 
     def train(self):

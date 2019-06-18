@@ -40,16 +40,16 @@ def main():
     a_size = env.action_size()[0]
 
     actor_network = deepnetwork.CNN([o_size, 64, 64, a_size], "actor")
-    actor_opt = optim.Adam(actor_network.parameters(), lr=0.003) # actor lr_rate
+    actor_opt = optim.Adam(actor_network.parameters(), lr=0.0003) # actor lr_rate
 
     actor = Actor(actor_network, actor_opt, distribution.GaussianDistribution)
     
     critic_network = deepnetwork.CNN([o_size, 64, 64, 1], "critic")
-    critic_opt = optim.Adam(critic_network.parameters(), lr=0.003, # critic lr_rate
+    critic_opt = optim.Adam(critic_network.parameters(), lr=0.0003, # critic lr_rate
                               weight_decay=0.001) # critie lr_rate2
     critic = Critic(critic_network, critic_opt)
         
-    agent = policy.PPOAgent(env, actor, critic, {'gamma' : 0.99, 'lamda' : 0.99, 'steps' : 4096}, args.render)
+    agent = policy.PPOAgent(env, actor, critic, {'gamma' : 0.998, 'lamda' : 0.996, 'steps' : 4096, 'modifier' : statemodifier.ClassicModifier()}, args.render)
 
     model_path = os.path.join(os.getcwd(),'save_model')
 
