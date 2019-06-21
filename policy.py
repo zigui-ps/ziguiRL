@@ -27,6 +27,7 @@ class AgentInterface():
             self._episodes += 1
             n += 1
             state = self.state_modifier.apply(self.env.reset())
+            if n == 1: print("0 state value {}".format(self.critic.get_values(state).detach()[0]))
             score = 0
             while True: # timelimits
                 if self.render: self.env.render()
@@ -54,6 +55,10 @@ class AgentInterface():
     def next_action(self, state):
         state = self.state_modifier.modify(state)
         return self.actor.get_action(state)
+
+    def next_action_nodist(self, state):
+        state = self.state_modifier.modify(state)
+        return self.actor.get_action_nodist(state)
 
     def get_ckpt(self):
         ckpt = {'args' : self._args, 'episodes' : self._episodes}

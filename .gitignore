@@ -1,6 +1,8 @@
 tutorial_multi_pendulum
 __pycache__
 build
-*.so
 save_model
+MUJOCO_LOG.TXT
 *.swp
+*.so
+*.out

@@ -67,8 +67,10 @@ def main():
     print("Start Training: PPO")
     for i in range(args.train_step):
         agent.train(train_step = 1)
-        filename = 'ckpt_{}_{}_{}'.format(env.name, args.name, i)
-        torch.save(agent.get_ckpt(), os.path.join(model_path, filename))
+        file_name = 'ckpt_{}_{}_{}'.format(env.name, args.name, i)
+        path = os.path.join(model_path, file_name)
+        torch.save(agent.get_ckpt(), path)
+        print("saved at {}".format(path))
     
     print("End Training: PPO")
 
@@ -78,7 +80,7 @@ def main():
 
         action = agent.next_action(state)
         state, _, done, _, _ = env.step(action)
-        sleep(0.05)
+#        sleep(0.05)
         if done:
             print("END")
             state = env.reset()
