@@ -7,12 +7,15 @@ from model import Actor, Critic
 import distribution
 import customenv.multipendulum as multipendulum
 import customenv.customgym as customgym
+import bipedenv.biped as biped
 import statemodifier
 import os, argparse
 from time import sleep
 
 def argument_parse():
     parser = argparse.ArgumentParser()
+    parser.add_argument('xml_file_name', nargs='?')
+    parser.add_argument('motion_file_name', nargs='?')
     parser.add_argument('--load_model', type=str, default=None)
     parser.add_argument('--train_step', type=int, default=15000)
     parser.add_argument('--name', type=str, default='zigui')
@@ -25,13 +28,14 @@ def get_env(name):
     if name is None: return None
     if name == "Hopper-v2": return customgym.PythonGym('Hopper-v2', 1000)
     if name == "multipendulum": return multipendulum.MultiPendulum()
+    if name == "biped": return bipedenv.Biped()
     assert(False)
 
 def main():
     args = argument_parse()
     env = get_env(args.env)
 
-    if env is None: env = multipendulum.MultiPendulum()
+    if env is None: env = biped.Biped()
 
 #    env.env.seed(500)
 #    torch.manual_seed(500)
@@ -39,17 +43,17 @@ def main():
     o_size = env.observation_size()[0]
     a_size = env.action_size()[0]
 
-    actor_network = deepnetwork.CNN([o_size, 64, 64, a_size], "actor")
+    actor_network = deepnetwork.CNN([o_size, 1024, 512, a_size], "actor")
     actor_opt = optim.Adam(actor_network.parameters(), lr=0.0003) # actor lr_rate
 
     actor = Actor(actor_network, actor_opt, distribution.GaussianDistribution)
     
-    critic_network = deepnetwork.CNN([o_size, 64, 64, 1], "critic")
+    critic_network = deepnetwork.CNN([o_size, 1024, 512, 1], "critic")
     critic_opt = optim.Adam(critic_network.parameters(), lr=0.0003, # critic lr_rate
                               weight_decay=0.001) # critie lr_rate2
     critic = Critic(critic_network, critic_opt)
         
-    agent = policy.PPOAgent(env, actor, critic, {'gamma' : 0.998, 'lamda' : 0.996, 'steps' : 4096, 'modifier' : statemodifier.ClassicModifier()}, args.render)
+    agent = policy.PPOAgent(env, actor, critic, {'gamma' : 0.998, 'lamda' : 0.996, 'steps' : 1024, 'modifier' : statemodifier.ClassicModifier()}, args.render)
 
     model_path = os.path.join(os.getcwd(),'save_model')
 

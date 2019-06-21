@@ -29,7 +29,7 @@ class AgentInterface():
             state = self.state_modifier.apply(self.env.reset())
             score = 0
             while True: # timelimits
-                if n == 1 and self.render: self.env.render()
+                if self.render: self.env.render()
                 action = self.actor.get_action(state)
                 next_state, reward, done, tl, _ = self.env.step(action)
                 next_state = self.state_modifier.apply(next_state)
