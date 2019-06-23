@@ -18,6 +18,6 @@ class CNN(nn.Module):
         for i, fc in enumerate(self.fc):
             x = fc(x)
             if i != len(self.fc)-1:
-                x = F.tanh(x)
+                x = F.relu(x)
         return x
 

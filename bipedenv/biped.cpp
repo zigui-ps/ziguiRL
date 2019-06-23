@@ -115,29 +115,59 @@ protected:
 };
 
 namespace BipedEnv{
+	std::vector<Eigen::VectorXd> motion;
+
 	double pose_distance(const Eigen::VectorXd &prev_state, const Eigen::VectorXd &current_state, const Eigen::VectorXd &prev_motion, const Eigen::VectorXd &current_motion, int nDofs){
 		double reward = 0;
-		for(int i = 6; i < nDofs; i += 3){
-			Eigen::Vector3d ps = prev_state.segment(i, 3);
-			Eigen::Vector3d cs = current_state.segment(i, 3);
-			Eigen::Vector3d pm = prev_motion.segment(i, 3);
-			Eigen::Vector3d cm = current_motion.segment(i, 3);
 
-			Eigen::Quaterniond psq = expToQuat(ps);
-			Eigen::Quaterniond csq = expToQuat(cs);
-			Eigen::Quaterniond pmq = expToQuat(pm);
-			Eigen::Quaterniond cmq = expToQuat(cm);
-
-			double state_distance = psq.angularDistance(csq);
-			double model_distance = pmq.angularDistance(cmq);
-			double dist = csq.angularDistance(cmq);
-
-			auto sq = [](double x){ return x*x; };
-			reward += 1. / (pow(dist / 0.4, 2) + 0.2); // Region Effect
-
-//			reward += exp(-fabs(model_distance - state_distance)); // Flow Effect
+		// Region Effect
+		double t2 = 0, t1 = 0, t0 = 0;
+		for(int i = 6; i < nDofs; i++){
+			t2 += (prev_motion[i] - current_motion[i]) * (prev_motion[i] - current_motion[i]);
+			t1 += (prev_motion[i] - current_motion[i]) * (current_motion[i] - current_state[i]);
+			t0 += (current_motion[i] - current_state[i]) * (current_motion[i] - current_state[i]);
 		}
+		double t = -t1/t2, dist = 0, r1 = 0;
+		if(t < 0) dist = t0;
+		else if(t > 1) dist = t2 + 2*t1 + t0;
+		else dist = t2 * t*t2 + 2*t1*t + t0;
 
+		return dist;
+	}
+
+	int closest_pose(const Eigen::VectorXd &prev_state, const Eigen::VectorXd &current_state, int nDofs){
+		double mn = 1e18;
+		int idx = 0;
+		for(int i = 0; i+1 < motion.size(); i++){
+			double dist = pose_distance(prev_state, current_state, motion[i], motion[i+1], nDofs);
+			if(dist < mn) mn = dist, idx = i;
+		}
+		return idx;
+	}
+
+	double flow_effect(const Eigen::VectorXd &prev_state, const Eigen::VectorXd &current_state, const Eigen::VectorXd &prev_motion, const Eigen::VectorXd &current_motion, int nDofs){
+		double vec = 0, s1 = 0, s2 = 0;
+		for(int i = 6; i < nDofs; i++){
+			double ds = current_state[i] - prev_state[i];
+			double dm = current_motion[i] - prev_motion[i];
+			vec += (ds-dm) * (ds-dm);
+		}
+		return vec;
+	}
+
+	double get_reward(const Eigen::VectorXd &prev_state, const Eigen::VectorXd &current_state, int nDofs){
+		int idx = closest_pose(prev_state, current_state, nDofs);
+		Eigen::VectorXd prev_motion = motion[idx], current_motion = motion[idx+1];
+		double dist = pose_distance(prev_state, current_state, prev_motion, current_motion, nDofs);
+		double flow = flow_effect(prev_state, current_state, prev_motion, current_motion, nDofs);
+
+		double reward = 0;
+		double r1 = 1. / (pow(dist / 10, 4) + 0.1);
+		double r2 = exp(-flow);	
+
+		reward += 0.3 * r1 + 0.7 * r2;
+
+		if(dist > 15) reward = -1;
 		// TODO : End point control
 		return reward;
 	}
@@ -161,7 +191,7 @@ public:
 		
     mController = std::make_unique<Controller>(biped);
 		
-		state_size = (biped->getNumDofs() - 6) * 2;
+		state_size = (biped->getNumDofs()) * 2;
 		action_size = biped->getNumDofs() - 6;
 
 		step = 0;
@@ -183,11 +213,11 @@ public:
 		double reward = 0;
 		step += 1;
 		int nDofs = biped->getNumDofs();
-		Eigen::VectorXd act = Eigen::VectorXd::Zero(nDofs);
+		Eigen::VectorXd act = biped->getPositions();
 		Eigen::VectorXd prev_state = biped->getPositions();
 		
 		for (std::size_t i = 6, j = 0; i < nDofs; i++, j++)
-			act[i] = action.angle[j];
+			act[i] += action.angle[j] * 0.2;
 		
 		mController->setTargetPositions(act);
 		
@@ -198,17 +228,16 @@ public:
 		}
 		
 		Eigen::VectorXd current_state = biped->getPositions();
-		for(size_t i = 6, j = 0; i < biped->getNumDofs(); i++, j++){
+		for(size_t i = 0, j = 0; i < biped->getNumDofs(); i++, j++){
 			state.dofs[j*2] = state.dofs[j*2+1];
 			state.dofs[j*2+1] = current_state[i];
 		}
-		for(int j = 0; j < motion.size(); j++){
-			reward = std::max(reward, BipedEnv::pose_distance(prev_state, current_state, motion[j], motion[j+1 == motion.size()? 0 : j+1], nDofs));
-		}
-		if(biped->getCOM()[1] < -0.5) done = true, reward = 0;
+		reward = BipedEnv::get_reward(prev_state, current_state, nDofs);
+		if(biped->getCOM()[1] < -0.6 || biped->getCOM()[1] > 1.5) done = true, reward = 0;
 		if(step >= TIME_LIMIT) done = true;
-		printf("%lf\n", reward);
-		return std::max(reward, 0.0);
+//		printf("%lf ", reward);
+		if(reward < 0.0) done = true;
+		return reward;
 	}
 
 	State getState(){ 
@@ -224,14 +253,13 @@ public:
     mController = std::make_unique<Controller>(biped);
 		
 		Eigen::VectorXd act = biped->getPositions();
-		int initialState = rand() % motion.size();
+		Eigen::VectorXd sample = BipedEnv::motion[rand() % BipedEnv::motion.size()];
 		for(int i = 6; i < biped->getNumDofs(); i++){
-			act[i] = motion[initialState][i];
+			act[i] = sample[i];
 		}
 
 		biped->setPositions(act);
-		printf("Test: %lf\n", BipedEnv::pose_distance(act, act, act, act, biped->getNumDofs()));
-		for(size_t i = 6, j = 0; i < biped->getNumDofs(); i++, j++){
+		for(size_t i = 0, j = 0; i < biped->getNumDofs(); i++, j++){
 			state.dofs[j*2] = state.dofs[j*2+1] = act[i];
 		}
 	}
@@ -239,7 +267,6 @@ public:
 	bool done;
 	int action_size, state_size;
 	bool tl(){ return step >= TIME_LIMIT; }
-	std::vector<Eigen::VectorXd> motion;
 
 protected:
 	int step;
@@ -283,6 +310,11 @@ void init(int argc, char* argv[])
 	printf("Skeleton File: %s\n", argv[2]);
   SkeletonPtr biped = DPhy::SkeletonBuilder::BuildFromFile(argv[2]);
   SkeletonPtr ground = createFloor(); //DPhy::SkeletonBuilder::BuildFromFile("character/ground.xml");
+	
+	printf("Motion File: %s\n", argv[3]);
+	double fps;
+	myBVH::BVHNode *root;
+	myBVH::MotionParser(BipedEnv::motion, argv[3], fps, root);
 
 	// Set joint limits
   for (std::size_t i = 6; i < biped->getNumJoints(); ++i)
@@ -301,12 +333,6 @@ void init(int argc, char* argv[])
 
   // Create a window for rendering the world and handling user input
   window = std::shared_ptr<MyWindow>(new MyWindow(world));
-
-	double fps;
-	myBVH::BVHNode *root;
-	
-	printf("Motion File: %s\n", argv[3]);
-	myBVH::MotionParser(window->motion, argv[3], fps, root);
 
   // Print instructions
 	std::cout << "init Called!!" << std::endl;

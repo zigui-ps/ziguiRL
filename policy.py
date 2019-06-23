@@ -23,7 +23,7 @@ class AgentInterface():
     def get_replay_buffer(self):
         total_score, steps, n = 0, 0, 0
         replay_buffer = ReplayBuffer()
-        while steps < self.steps:
+        while steps < self.steps: # and n < 15:
             self._episodes += 1
             n += 1
             state = self.state_modifier.apply(self.env.reset())
@@ -83,8 +83,8 @@ class PPOAgent(AgentInterface):
 
     def train(self, train_step):
         for _ in range(train_step): # train step
-            self.actor.mode_eval()
-            self.critic.mode_eval()
+            self.actor.eval()
+            self.critic.eval()
 
             replay_buffer = self.get_replay_buffer()
             states, actions = replay_buffer.get_tensor()
@@ -98,8 +98,8 @@ class PPOAgent(AgentInterface):
             n = len(states)
             batch_size = 64
             
-            self.actor.mode_train()
-            self.critic.mode_train()
+            self.actor.train()
+            self.critic.train()
     
             for epoch in range(10):
                 arr = torch.randperm(n)
@@ -132,8 +132,14 @@ class PPOAgent(AgentInterface):
                     # merge loss function
                     loss = actor_loss + 0.5 * critic_loss
 
-                    self.actor.apply_loss(loss, retain_graph=True)
-                    self.critic.apply_loss(loss, retain_graph=False)
+                    self.actor.zero_grad()
+                    self.critic.zero_grad()
+                    loss.backward()
+                    self.actor.step()
+                    self.critic.step()
+
+#                    self.actor.apply_loss(loss, retain_graph=True)
+#                    self.critic.apply_loss(loss, retain_graph=False)
 
 class VanilaAgent(AgentInterface):
     def __init__(self, env, actor, critic, args, render):

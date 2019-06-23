@@ -18,7 +18,7 @@ class Actor():
 
     def get_action(self, state):
         mu = self._network(state)
-        return self._dist.sample(mu)
+        return self._dist.sample(mu, state)
         
     def get_action_nodist(self, state):
         mu = self._network(state).detach()
@@ -30,27 +30,43 @@ class Actor():
     # return: density(torch.Tensor(float array: size = [:][1]))
     def log_policy(self, states, actions):
         mu = self._network(states)
-        res = self._dist.log_density(actions, mu)
+        res = self._dist.log_density(actions, mu, states)
         for _ in range(res.dim()-2): res._sum(1)
         return res.sum(1, keepdim=True)
 
-    def mode_train(self):
+    def train(self):
         self._network.train()
+        self._dist.train()
 
-    def mode_eval(self):
+    def eval(self):
         self._network.eval()
+        self._dist.eval()
+
+    def zero_grad(self):
+        self._opt.zero_grad()
+        self._dist.zero_grad()
+
+    def step(self):
+        self._opt.step()
+        self._dist.step()
 
     def apply_loss(self, loss, retain_graph=False):
+        self._dist.apply_loss(loss, retain_graph=True)
         self._opt.zero_grad()
         loss.backward(retain_graph=retain_graph)
         self._opt.step()
 
     def set_ckpt(self, ckpt):
-        assert('actor' in ckpt)
+        assert('actor' and 'dist' in ckpt)
         self._network.load_state_dict(ckpt['actor'])
+        self._dist = ckpt['dist']
+        self._dist.set_ckpt(ckpt)
 
     def get_ckpt(self):
-        return {'actor' : self._network.state_dict()}
+        ckpt = {'actor' : self._network.state_dict(), \
+                'dist' : self._dist}
+        ckpt.update(self._dist.get_ckpt())
+        return ckpt
 
 # Critic has:
 # policy network(network)
@@ -69,11 +85,17 @@ class Critic():
         value = self._network(state)
         return value
         
-    def mode_train(self):
+    def train(self):
         self._network.train()
 
-    def mode_eval(self):
+    def eval(self):
         self._network.eval()
+
+    def zero_grad(self):
+        self._opt.zero_grad()
+
+    def step(self):
+        self._opt.step()
 
     def apply_loss(self, loss, retain_graph=False):
         self._opt.zero_grad()
