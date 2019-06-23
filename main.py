@@ -1,5 +1,6 @@
 import torch
 import torch.optim as optim
+import torch.nn.functional as F
 
 import policy
 import deepnetwork
@@ -43,21 +44,23 @@ def main():
     o_size = env.observation_size()[0]
     a_size = env.action_size()[0]
 
-    actor_network = deepnetwork.CNN([o_size, 1024, 512, a_size], "actor")
+    actor_network = deepnetwork.CNN([o_size, 64, 64, a_size], "actor", tanh=True)
     actor_opt = optim.Adam(actor_network.parameters(), lr=0.0003) # actor lr_rate
 
-    dist_network = deepnetwork.CNN([o_size, 1024, 512, a_size], "dist")
+    dist_network = deepnetwork.CNN([o_size, 64, 64, a_size], "dist", tanh=True, offset = -1)
     dist_opt = optim.Adam(dist_network.parameters(), lr = 0.0003)
     dist = distribution.NetGaussianDistribution(dist_network, dist_opt)
+    
+#    dist = distribution.FixedGaussianDistribution()
 
     actor = Actor(actor_network, actor_opt, dist)
     
-    critic_network = deepnetwork.CNN([o_size, o_size, o_size, o_size, 1], "critic")
+    critic_network = deepnetwork.CNN([o_size, 64, 64, 1], "critic", tanh=False)
     critic_opt = optim.Adam(critic_network.parameters(), lr=0.0003, # critic lr_rate
                               weight_decay=0.001) # critie lr_rate2
     critic = Critic(critic_network, critic_opt)
         
-    agent = policy.PPOAgent(env, actor, critic, {'gamma' : 0.99, 'lamda' : 0.98, 'steps' : 1024, 'modifier' : statemodifier.DefaultModifier()}, args.render)
+    agent = policy.PPOAgent(env, actor, critic, {'gamma' : 0.998, 'lamda' : 0.996, 'steps' : 4096, 'modifier' : statemodifier.ClassicModifier()}, args.render)
 
     model_path = os.path.join(os.getcwd(),'save_model')
 

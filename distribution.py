@@ -28,7 +28,7 @@ class DistributionInterface():
         pass
 
     def get_ckpt(self):
-        pass
+        return {}
 
 class FixedGaussianDistribution(DistributionInterface):
     def sample(self, mu, state):
