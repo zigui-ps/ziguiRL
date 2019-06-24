@@ -1,9 +1,9 @@
 import sys
 import torch
+import math
 from ctypes import *
 
 dofs = 200
-forces = 200
 
 def get_args():
     argc = len(sys.argv)
@@ -15,10 +15,10 @@ def get_args():
     return argc, argv
 
 class State(Structure):
-    _fields_ = [("dofs", c_double * (dofs * 2))]
+    _fields_ = [("dofs", c_double * (dofs * 2 + 1))]
     
 class Action(Structure):
-    _fields_ = [("forces", c_double * forces)]
+    _fields_ = [("desired", c_double * (dofs * 2 + 1))]
 
 class Result(Structure):
     _fields_ = [("state", State), ("reward", c_double), ("done", c_bool), ("time_limit", c_bool)]
@@ -56,7 +56,8 @@ class Biped():
         return self.state_modifier(self._reset())
 
     def step(self, action):
-        act = (c_double * forces)()
+        action = torch.clamp(action * 0.2, -math.pi * 0.7, math.pi * 0.7)
+        act = (c_double * (dofs * 2 + 1))()
         for i in range(self._actionSize): act[i] = action[i]
 
         result = self._step(Action(act))

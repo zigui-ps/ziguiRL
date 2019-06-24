@@ -6,9 +6,132 @@
 #include<string>
 #include "MotionParser.h"
 
-namespace myBVH{
+const double PI = acos(-1);
 
-static myBVH::BVHNode* get_end(std::ifstream &file){
+myBVH::myBVH(std::string filename, SkeletonPtr skel_ori){
+	BVHParser(filename);
+	skel = skel_ori->cloneSkeleton();
+
+	assert(skel_ori->getName() == "Humanoid");
+	assert(motion.size() != 0);
+}
+
+Eigen::VectorXd myBVH::getPositions(int count){
+	if(count >= frames-1){
+		std::cout << "ReferenceManager.cpp : count exceeds frame limit" << std::endl;
+		std::cout << "count : " << count << ", " << "tf : " << frames << std::endl;
+		count = motion.size()-1;
+	}
+	return motion[count];
+}
+
+/*
+Eigen::VectorXd myBVH::getPositions(double time){
+	int k = (int)std::floor(time*this->mMotionHz)%this->mNumTotalFrame;
+	int k1 = std::min(k+1,this->mNumTotalFrame-1);
+	// double t = std::fmod(time, (1.0/this->mMotionHz))*this->mMotionHz;
+	double t = (time*this->mMotionHz-k);
+	if( t < 0 )
+		std::cout << time << " : " << k << ", " << k1 << ", " << t << std::endl;
+
+	Eigen::VectorXd motion_k = this->mReferenceTrajectory[k];
+	Eigen::VectorXd motion_k1 = this->mReferenceTrajectory[k1];
+
+	Eigen::VectorXd motion_t = Eigen::VectorXd::Zero(motion_k.rows());
+
+	auto& skel = this->mCharacter->GetSkeleton();
+	for(int i = 0; i < skel->getNumJoints(); i++){
+		dart::dynamics::Joint* jn = skel->getJoint(i);
+		if(dynamic_cast<dart::dynamics::BallJoint*>(jn)!=nullptr){
+			int index = jn->getIndexInSkeleton(0);
+			int dof = jn->getNumDofs();
+			Eigen::Quaterniond pos_k = DARTPositionToQuaternion(motion_k.segment<3>(index));
+			Eigen::Quaterniond pos_k1 = DARTPositionToQuaternion(motion_k1.segment<3>(index));
+
+			motion_t.segment<3>(index) = QuaternionToDARTPosition(pos_k.slerp(t, pos_k1));
+		}
+		else if(dynamic_cast<dart::dynamics::FreeJoint*>(jn)!=nullptr){
+			int index = jn->getIndexInSkeleton(0);
+			int dof = jn->getNumDofs();
+			Eigen::Quaterniond pos_k = DARTPositionToQuaternion(motion_k.segment<3>(index));
+			Eigen::Quaterniond pos_k1 = DARTPositionToQuaternion(motion_k1.segment<3>(index));
+
+			motion_t.segment<3>(index) = QuaternionToDARTPosition(pos_k.slerp(t, pos_k1));
+
+			motion_t.segment<3>(index+3) = motion_k.segment<3>(index+3)*(1-t) + motion_k1.segment<3>(index+3)*t;
+		}
+		else if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
+			int index = jn->getIndexInSkeleton(0);
+			int dof = jn->getNumDofs();
+			double delta = RadianClamp(motion_k1[index]-motion_k[index]);
+			motion_t[index] = motion_k[index] + delta*t;
+		}
+	}
+
+	return motion_t;
+}
+// */
+
+std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd> myBVH::getMotion(int count){
+	Eigen::VectorXd cur_pos, cur_vel, next_pos;
+	if( count >= frames-1){
+		std::cout << "Exceed reference max time" << std::endl;
+		cur_pos = getPositions(count);
+		next_pos = getPositions(count);
+		cur_vel = Eigen::VectorXd::Zero(cur_pos.rows());
+	}
+	else{
+		int next_count = count + 1;
+		cur_pos = getPositions(count);
+		next_pos = getPositions(next_count);
+		cur_vel = skel->getPositionDifferences(next_pos, cur_pos) * fps;
+	}
+	return std::make_tuple(cur_pos, cur_vel, next_pos);
+}
+
+/*
+std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd> myBVH::getMotion(double time)
+{
+	Eigen::VectorXd cur_pos, cur_vel, next_pos;
+	if( time >= frame){
+		std::cout << "Exceed reference max time" << std::endl;
+		Eigen::VectorXd cur_pos = this->getPositions(time);
+		Eigen::VectorXd next_pos = this->getPositions(time);
+		Eigen::VectorXd cur_vel = Eigen::VectorXd::Zero(cur_pos.rows());
+	}
+
+	else{
+		double next_time = time + 1.0/this->mControlHz;
+		Eigen::VectorXd cur_pos = this->getPositions(time);
+		Eigen::VectorXd next_pos = this->getPositions(next_time);
+		Eigen::VectorXd cur_vel = this->mCharacter->GetSkeleton()->getPositionDifferences(next_pos, cur_pos) * this->mControlHz;
+
+		return std::make_tuple(cur_pos, cur_vel, next_pos);
+	}
+}
+// */
+
+void myBVH::BVHParser(std::string filename)
+{
+	std::ifstream file(filename);
+	std::string command, tmp;
+
+	motion.clear();
+	channels = frames = 0;
+
+	while(1){
+		command = ""; file >> command;
+		if(command == "HIERARCHY"){
+			file >> tmp; assert(tmp == "ROOT");
+			root = nodeParser(file);
+		}
+		else if(command == "MOTION") motionParser(file);
+		else break;
+	}
+	file.close();
+}
+
+BVHNode* myBVH::endParser(std::ifstream &file){
 	BVHNode* current_node = new BVHNode();
 	std::string tmp;
 	file >> current_node->name;
@@ -20,20 +143,12 @@ static myBVH::BVHNode* get_end(std::ifstream &file){
 	return current_node;
 }
 
-static int total_channels(BVHNode* current){
-	int cnt = current->channels.size();
-	for(BVHNode* next : current->child){
-		cnt += total_channels(next);
-	}
-	return cnt;
-}
-
-static BVHNode* get_node(std::ifstream &file)
+BVHNode* myBVH::nodeParser(std::ifstream &file)
 {
 	std::string command, tmp;
 	int sz;
-	
 	BVHNode* current_node = new BVHNode();
+
 	file >> current_node->name;
 	file >> tmp; assert(tmp == "{");
 
@@ -44,36 +159,35 @@ static BVHNode* get_node(std::ifstream &file)
 		}
 		else if(command == "CHANNELS"){
 			file >> sz;
+			channels += sz;
 			for(int i = 0; i < sz; i++){
 				file >> tmp;
-				current_node->channels.push_back(tmp);
+				current_node->channelList.push_back(tmp);
 			}
 		}
 		else if(command == "JOINT"){
-			current_node->child.push_back(get_node(file));
+			current_node->child.push_back(nodeParser(file));
 		}
 		else if(command == "End"){
-			current_node->child.push_back(get_end(file));
+			current_node->child.push_back(endParser(file));
 		}
 		else if(command == "}") break;
 	}
 	return current_node;
 }
 
-static void get_motion(std::vector<Eigen::VectorXd> &motion, std::ifstream &file, double &fps, BVHNode* root)
+void myBVH::motionParser(std::ifstream &file)
 {
-	int size = 0, channels = total_channels(root);
 	double time_interval;
 	std::string command;
 
 	file >> command; assert(command == "Frames:");
-	file >> size;
+	file >> frames;
 	file >> command; assert(command == "Frame");
 	file >> command; assert(command == "Time:");
 	file >> time_interval; fps = 1. / time_interval;
-	const double PI = acos(-1);
 
-	for(int t = 0; t < size; t++){
+	for(int t = 0; t < frames; t++){
 		// Position
 		Eigen::VectorXd vec = Eigen::VectorXd::Zero(channels);
 		for(int i = 0; i < 3; i++){
@@ -93,24 +207,4 @@ static void get_motion(std::vector<Eigen::VectorXd> &motion, std::ifstream &file
 		}
 		motion.push_back(vec);
 	}
-}
-
-void MotionParser(std::vector<Eigen::VectorXd> &motion, std::string filename, double &fps, BVHNode* &root)
-{
-	std::ifstream file(filename);
-	motion.clear();
-	
-	while(1){
-		std::string command, tmp;
-		file >> command;
-		if(command == "HIERARCHY"){
-			file >> tmp;
-			assert(tmp == "ROOT");
-			root = get_node(file);
-		}
-		else if(command == "MOTION") get_motion(motion, file, fps, root);
-		else break;
-	}
-	file.close();
-}
 }

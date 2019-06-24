@@ -50,6 +50,7 @@ class NetGaussianDistribution(DistributionInterface):
     def sample(self, mu, state):
         logstd = self._network(state)
         std = torch.exp(logstd)
+        print(torch.mean(std))
         return tdist.Normal(mu, std).sample()
     
     def log_density(self, act, mu, state):

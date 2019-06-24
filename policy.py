@@ -23,7 +23,7 @@ class AgentInterface():
     def get_replay_buffer(self):
         total_score, steps, n = 0, 0, 0
         replay_buffer = ReplayBuffer()
-        while steps < self.steps: # and n < 15:
+        while steps < self.steps and n < 32:
             self._episodes += 1
             n += 1
             state = self.state_modifier.apply(self.env.reset())

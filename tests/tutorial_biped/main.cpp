@@ -176,7 +176,7 @@ glBegin(GL_POLYGON);
   void timeStepping() override
   {
 		if(timestep == 0){
-			mController->setTargetPositions(motion[step % motion.size()]);
+//			mController->setTargetPositions(target->motion[step % motion.size()]);
 			step += 1;
 			timestep = 30;
 		}
@@ -186,10 +186,12 @@ glBegin(GL_POLYGON);
     // Step the simulation forward
     //SimWindow::timeStepping();
 		//
-		biped->setPositions(motion[step % motion.size()]);
+
+		Eigen::VectorXd pose = target->getPositions(step % target->frames);
+		biped->setPositions(pose);
 	}
 	
-	std::vector<Eigen::VectorXd> motion;
+	std::shared_ptr<myBVH> target;
 
 protected:
   /// Number of iterations before clearing a force entry
@@ -248,8 +250,6 @@ SkeletonPtr createFloor()
 
 int main(int argc, char* argv[])
 {
-	double fps;
-	myBVH::BVHNode *root;
   SkeletonPtr floor = DPhy::SkeletonBuilder::BuildFromFile(argv[3]);
 
   // Lesson 1
@@ -269,7 +269,7 @@ int main(int argc, char* argv[])
   
 	// Create a window for rendering the world and handling user input
   MyWindow window(world);
-	myBVH::MotionParser(window.motion, argv[2], fps, root);
+	window.target = std::shared_ptr<myBVH>(new myBVH(argv[2], biped));
 
   // Initialize glut, initialize the window, and begin the glut event loop
   glutInit(&argc, argv);
