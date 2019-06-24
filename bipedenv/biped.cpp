@@ -13,14 +13,13 @@ using namespace dart::math;
 const int TIME_LIMIT = 1024;
 
 const int DOFS_SIZE = 200;
-const int FORCES_SIZE = 200;
 
 struct State{
-	double dofs[DOFS_SIZE * 2];
+	double array[DOFS_SIZE * 2 + 1];
 };
 
 struct Action{
-	double angle[FORCES_SIZE];
+	double angle[DOFS_SIZE];
 };
 
 struct Result{
@@ -92,7 +91,6 @@ public:
 
     mForces += p + d - mKd * qddot * mBiped->getTimeStep();
     mBiped->setForces(mForces);
-		mAvgForce = (mAvgForce * count + mForces) / (count+1);
   }
 
 protected:
@@ -101,7 +99,6 @@ protected:
 
   /// Joint forces for the biped (output of the Controller)
   Eigen::VectorXd mForces;
-	Eigen::VectorXd mAvgForce;
 	int count;
 
   /// Control gains for the proportional error terms in the PD controller
@@ -117,24 +114,7 @@ protected:
 namespace BipedEnv{
 	std::vector<Eigen::VectorXd> motion;
 
-	double pose_distance(const Eigen::VectorXd &prev_state, const Eigen::VectorXd &current_state, const Eigen::VectorXd &prev_motion, const Eigen::VectorXd &current_motion, int nDofs){
-		double reward = 0;
-
-		// Region Effect
-		double t2 = 0, t1 = 0, t0 = 0;
-		for(int i = 6; i < nDofs; i++){
-			t2 += (prev_motion[i] - current_motion[i]) * (prev_motion[i] - current_motion[i]);
-			t1 += (prev_motion[i] - current_motion[i]) * (current_motion[i] - current_state[i]);
-			t0 += (current_motion[i] - current_state[i]) * (current_motion[i] - current_state[i]);
-		}
-		double t = -t1/t2, dist = 0, r1 = 0;
-		if(t < 0) dist = t0;
-		else if(t > 1) dist = t2 + 2*t1 + t0;
-		else dist = t2 * t*t2 + 2*t1*t + t0;
-
-		return dist;
-	}
-
+	/* TODO
 	int closest_pose(const Eigen::VectorXd &prev_state, const Eigen::VectorXd &current_state, int nDofs){
 		double mn = 1e18;
 		int idx = 0;
@@ -154,8 +134,14 @@ namespace BipedEnv{
 		}
 		return vec;
 	}
+		// */
 
-	double get_reward(const Eigen::VectorXd &prev_state, const Eigen::VectorXd &current_state, int nDofs){
+	double pose_distance(const Eigen::VectorXd &prev_state, const Eigen::VectorXd &current_state, const Eigen::VectorXd &prev_motion, const Eigen::VectorXd &current_motion, int nDofs){
+		
+	}
+
+	double get_reward(const Eigen::VectorXd &prev_state, const Eigen::VectorXd &current_state, int nDofs, const Eigen::VectorXd &target){
+		/*
 		int idx = closest_pose(prev_state, current_state, nDofs);
 		Eigen::VectorXd prev_motion = motion[idx], current_motion = motion[idx+1];
 		double dist = pose_distance(prev_state, current_state, prev_motion, current_motion, nDofs);
@@ -169,7 +155,17 @@ namespace BipedEnv{
 
 		if(dist > 15) reward = -1;
 		// TODO : End point control
+		// */
+
+		double reward = 0;
+		reward += pose_distance(current_state, target, nDofs);
+
 		return reward;
+	}
+
+	bool isTerminate(SkeletonPtr biped){
+		if(biped->getCOM()[1] < -0.6 || biped->getCOM()[1] > 1.5) return true;
+		return false;
 	}
 }
 
@@ -228,12 +224,16 @@ public:
 		}
 		
 		Eigen::VectorXd current_state = biped->getPositions();
+		Eigen::VectorXd current_velocity = biped->getVelocity();
+
+		state.array[0] = step%30 / 30.0;
 		for(size_t i = 0, j = 0; i < biped->getNumDofs(); i++, j++){
-			state.dofs[j*2] = state.dofs[j*2+1];
-			state.dofs[j*2+1] = current_state[i];
+			state.array[j*2+1] = current_state[i];
+			state.array[j*2+2] = current_velocity[i];
 		}
-		reward = BipedEnv::get_reward(prev_state, current_state, nDofs);
-		if(biped->getCOM()[1] < -0.6 || biped->getCOM()[1] > 1.5) done = true, reward = 0;
+		reward = BipedEnv::get_reward(prev_state, current_state, step%30, nDofs);
+
+		if(BipedEnv::isTerminate(biped)) done = true, reward = 0;
 		if(step >= TIME_LIMIT) done = true;
 //		printf("%lf ", reward);
 		if(reward < 0.0) done = true;
@@ -259,8 +259,11 @@ public:
 		}
 
 		biped->setPositions(act);
+		Eigen::VectorXd vel = biped->getVelocity();
+		state.array[0] = 0;
 		for(size_t i = 0, j = 0; i < biped->getNumDofs(); i++, j++){
-			state.dofs[j*2] = state.dofs[j*2+1] = act[i];
+			state.array[j*2+1] = act[i];
+			state.array[j*2+2] = vel[i];
 		}
 	}
 
