@@ -74,11 +74,14 @@ static void get_motion(std::vector<Eigen::VectorXd> &motion, std::ifstream &file
 	const double PI = acos(-1);
 
 	for(int t = 0; t < size; t++){
-		// Position, rotation
+		// Position
 		Eigen::VectorXd vec = Eigen::VectorXd::Zero(channels);
-		for(int i = 0; i < 6; i++) file >> vec[i];
+		for(int i = 0; i < 3; i++){
+			file >> vec[i+3];
+			vec[i+3] /= 100;
+		}
 		// EulerZXY
-		for(int i = 6; i < channels; i += 3){
+		for(int i = 3; i < channels; i += 3){
 			Eigen::Vector3d angle, joint;
 			for(int j = 0; j < 3; j++){
 				file >> angle[j];
@@ -86,7 +89,7 @@ static void get_motion(std::vector<Eigen::VectorXd> &motion, std::ifstream &file
 			}
 			Eigen::Matrix3d mat = dart::math::eulerZXYToMatrix(angle);
 			joint = dart::dynamics::BallJoint::convertToPositions(mat);
-			for(int j = 0, k = i; j < 3; j++, k++) vec[k] = joint[j];
+			for(int j = 0, k = i == 3? 0 : i; j < 3; j++, k++) vec[k] = joint[j];
 		}
 		motion.push_back(vec);
 	}

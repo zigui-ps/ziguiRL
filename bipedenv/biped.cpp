@@ -309,7 +309,7 @@ void init(int argc, char* argv[])
 {
 	printf("Skeleton File: %s\n", argv[2]);
   SkeletonPtr biped = DPhy::SkeletonBuilder::BuildFromFile(argv[2]);
-  SkeletonPtr ground = createFloor(); //DPhy::SkeletonBuilder::BuildFromFile("character/ground.xml");
+  SkeletonPtr ground = DPhy::SkeletonBuilder::BuildFromFile("./character/ground.xml");
 	
 	printf("Motion File: %s\n", argv[3]);
 	double fps;

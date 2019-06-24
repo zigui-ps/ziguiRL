@@ -161,6 +161,18 @@ public:
     }
   }
 
+  void draw() override
+	{
+glBegin(GL_POLYGON);
+		glVertex3f(-100, 0, -100);
+		glVertex3f(-100, 0, 100);
+		glVertex3f(100, 0, 100);
+		glVertex3f(100, 0, -100);
+  glEnd();
+
+		SimWindow::draw();
+	}
+
   void timeStepping() override
   {
 		if(timestep == 0){
@@ -169,10 +181,12 @@ public:
 			timestep = 30;
 		}
 		timestep--;
-		mController->clearForces();
-		mController->addSPDForces();
+		//mController->clearForces();
+		//mController->addSPDForces();
     // Step the simulation forward
-    SimWindow::timeStepping();
+    //SimWindow::timeStepping();
+		//
+		biped->setPositions(motion[step % motion.size()]);
 	}
 	
 	std::vector<Eigen::VectorXd> motion;
@@ -236,7 +250,7 @@ int main(int argc, char* argv[])
 {
 	double fps;
 	myBVH::BVHNode *root;
-  SkeletonPtr floor = createFloor();
+  SkeletonPtr floor = DPhy::SkeletonBuilder::BuildFromFile(argv[3]);
 
   // Lesson 1
   SkeletonPtr biped = loadBiped(argv[1]);
