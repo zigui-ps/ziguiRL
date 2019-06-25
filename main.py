@@ -45,7 +45,7 @@ def main():
     a_size = env.action_size()[0]
 
     actor_network = deepnetwork.CNN([o_size, 1024, 512, a_size], "actor")
-    actor_opt = optim.Adam(actor_network.parameters(), lr=0.0003) # actor lr_rate
+    actor_opt = optim.Adam(actor_network.parameters(), lr=0.0002) # actor lr_rate
 
     dist_network = deepnetwork.CNN([o_size, 1024, 512, a_size], "dist", zeroInit=True)
     dist_opt = optim.Adam(dist_network.parameters(), lr = 0.0003)
