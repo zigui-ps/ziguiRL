@@ -333,7 +333,6 @@ namespace BipedEnv{
 		// TODO : End point control
 		// */
 
-		double idx = targetData->closest_pose(prev_position);
 		State target = getTargetState(idx+1);
 
 		double reward = 0;
@@ -384,9 +383,11 @@ class Agent{
 		{
 			double reward = 0;
 			int nDofs = biped->getNumDofs();
-			Eigen::VectorXd act = biped->getPositions();
-			Eigen::VectorXd vel = BipedEnv::getVelocities(step+1);
 			Eigen::VectorXd prev_position = biped->getPositions();
+			
+			double idx = targetData->closest_pose(prev_position);
+			Eigen::VectorXd act = biped->getPositions();
+			Eigen::VectorXd vel = BipedEnv::getVelocities(idx+1);
 
 			for(int i = 0; i < 6; i++) act[i] = vel[i] = 0;
 			for (std::size_t i = 6, j = 0; i < nDofs; i++, j++){
@@ -407,7 +408,7 @@ class Agent{
 
 			setState(step, curr_position, curr_velocity);
 
-			reward = BipedEnv::get_reward(biped, prev_position);
+			reward = BipedEnv::get_reward(biped, idx);
 //			printf("reward: %lf\n", reward);
 
 			if(reward < 0) done = true, reward = 0;
