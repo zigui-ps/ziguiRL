@@ -59,7 +59,7 @@ def main():
     critic_opt = optim.Adam(critic_network.parameters(), lr=0.0003) # critic lr_rate
     critic = Critic(critic_network, critic_opt)
         
-    agent = policy.PPOAgent(env, actor, critic, {'gamma' : 0.99, 'lamda' : 0.95, 'steps' : 512, 'modifier' : statemodifier.ClassicModifier()}, args.render)
+    agent = policy.PPOAgent(env, actor, critic, {'gamma' : 0.99, 'lamda' : 0.95, 'steps' : 20000, 'batch_size' : 1024, 'modifier' : statemodifier.ClassicModifier()}, args.render)
 
     model_path = os.path.join(os.getcwd(),'save_model')
 

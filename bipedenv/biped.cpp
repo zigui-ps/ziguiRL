@@ -260,15 +260,6 @@ namespace BipedEnv{
 		Eigen::VectorXd p_diff = skel->getPositionDifferences(skel->getPositions(), target.positions);
 		Eigen::VectorXd v_diff = skel->getVelocityDifferences(skel->getVelocities(), target.velocities);
 
-		printf("\nskel\n");
-		for(int i = 0; i < clone->getNumDofs(); i++)
-			printf("%lf ", skel->getVelocities()[i]);
-
-		printf("\ntarget\n");
-		for(int i = 0; i < clone->getNumDofs(); i++)
-			printf("%lf ", target.velocities[i]);
-		printf("\n");
-
 		Eigen::VectorXd p_diff_lower, v_diff_lower;
 		p_diff_lower.resize(mRewardBodies.size()*3);
 		v_diff_lower.resize(mRewardBodies.size()*3);
@@ -350,15 +341,11 @@ namespace BipedEnv{
 	}
 }
 
-class MyWindow : public dart::gui::glut::SimWindow
-{
+class Agent{
 	public:
-		/// Constructor
-		MyWindow(WorldPtr world)
-		{
+		Agent(WorldPtr world){
 			initial_world = world;
-
-			setWorld(initial_world->clone());
+			mWorld = initial_world->clone();
 
 			// Find the Skeleton named "pendulum" within the World
 			biped = mWorld->getSkeleton("Humanoid"); // TODO name
@@ -374,29 +361,6 @@ class MyWindow : public dart::gui::glut::SimWindow
 			step = 0;
 			done = false;
 		}
-
-		/// Handle keyboard input
-		void keyboard(unsigned char key, int x, int y) override
-		{
-			switch (key)
-			{
-				default:
-					SimWindow::keyboard(key, x, y);
-			}
-		}
-
-		void draw() override
-		{
-			glBegin(GL_POLYGON);
-			glVertex3f(-100, 0, -100);
-			glVertex3f(-100, 0, 100);
-			glVertex3f(100, 0, 100);
-			glVertex3f(100, 0, -100);
-			glEnd();
-
-			SimWindow::draw();
-		}
-
 		double applyAction(Action action)
 		{
 			double reward = 0;
@@ -414,9 +378,9 @@ class MyWindow : public dart::gui::glut::SimWindow
 
 			step += 1;
 			for(int i = 0; i < 20; i++){
-				timeStepping();
 				mController->clearForces();
 				mController->addSPDForces();
+				mWorld->step();
 			}
 
 			Eigen::VectorXd curr_position = biped->getPositions();
@@ -443,7 +407,7 @@ class MyWindow : public dart::gui::glut::SimWindow
 		void resetWorld(){
 			step = rand() % (BipedEnv::targetData->frames - 2); // ??
 			done = tl = false;
-			setWorld(initial_world->clone());
+			mWorld = initial_world->clone();
 
 			biped = mWorld->getSkeleton("Humanoid");
 			mController = std::make_unique<Controller>(biped);
@@ -454,29 +418,58 @@ class MyWindow : public dart::gui::glut::SimWindow
 
 			biped->setPositions(position);
 			biped->setVelocities(velocity);
-		
+
 			biped->computeForwardKinematics(true,true,false);
 
-			position[0] = position[1] = position[2] = 0;
 			state.array[0] = 0;
 			for(size_t i = 0, j = 0; i < biped->getNumDofs(); i++, j++){
-				state.array[j*2+1] = i < 3? 0 : position[i];
+				state.array[j*2+1] = i == 3 || i == 5 ? 0 :  position[i];
 				state.array[j*2+2] = velocity[i]; //velocity 
 			}
 		}
-
 		bool done, tl;
 		int action_size, state_size;
+		WorldPtr mWorld, initial_world;
 
 	protected:
 		int step;
 		State state;
-		WorldPtr initial_world;
 		SkeletonPtr biped;
 		std::unique_ptr<Controller> mController;
 };
 
+class MyWindow : public dart::gui::glut::SimWindow
+{
+	public:
+		/// Constructor
+		MyWindow(std::shared_ptr<Agent> _agent)
+		{
+			agent = _agent;
+			setWorld(agent->mWorld);
+		}
+
+		/// Handle keyboard input
+		void keyboard(unsigned char key, int x, int y) override
+		{
+			switch (key)
+			{
+				default:
+					SimWindow::keyboard(key, x, y);
+			}
+		}
+
+		void draw() override
+		{
+			SimWindow::draw();
+		}
+
+	protected:
+		std::shared_ptr<Agent> agent;
+};
+
 std::shared_ptr<MyWindow> window;
+std::shared_ptr<Agent> agent;
+int isRender;
 
 void init(int argc, char* argv[])
 {
@@ -494,8 +487,10 @@ void init(int argc, char* argv[])
 	BipedEnv::init(motionFile, biped);
 
 	// Enable self collision check but ignore adjacent bodies
-//	biped->enableSelfCollisionCheck();
-//	biped->disableAdjacentBodyCheck();
+	//	biped->enableSelfCollisionCheck();
+	//	biped->disableAdjacentBodyCheck();
+	
+	for(int i = 0; i < argc; i++) if(strcmp(argv[i], "--render") == 0) isRender = 1;
 
 	// Create a world and add the pendulum to the world
 	WorldPtr world = World::create();
@@ -504,39 +499,43 @@ void init(int argc, char* argv[])
 	world->addSkeleton(ground);
 	world->setTimeStep(1.0/600);
 
+	agent = std::shared_ptr<Agent>(new Agent(world));
+
 	// Create a window for rendering the world and handling user input
-	window = std::shared_ptr<MyWindow>(new MyWindow(world));
+	if(isRender) window = std::shared_ptr<MyWindow>(new MyWindow(agent));
 
 	// Print instructions
 	std::cout << "init Called!!" << std::endl;
 
 	// Initialize glut, initialize the window, and begin the glut event loop
-	glutInit(&argc, argv);
-	window->initWindow(640, 480, "Biped Environment");
+	if(isRender){
+		glutInit(&argc, argv);
+		window->initWindow(640, 480, "Biped Environment");
+	}
 }
 
 void render(){
-	glutMainLoopEvent();
+	if(isRender) glutMainLoopEvent();
 }
 
 State reset()
 {
-	window->resetWorld();
-	return window->getState();
+	agent->resetWorld();
+	return agent->getState();
 }
 
 Result step(Action action)
 {
-	double reward = window->applyAction(action);
-	return Result(window->getState(), reward, window->done, window->tl);
+	double reward = agent->applyAction(action);
+	return Result(agent->getState(), reward, agent->done, agent->tl);
 }
 
 int observation_size()
 {
-	return window->state_size;
+	return agent->state_size;
 }
 
 int action_size()
 {
-	return window->action_size;
+	return agent->action_size;
 }

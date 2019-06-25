@@ -17,8 +17,9 @@ class AgentInterface():
         self.state_modifier = ClassicModifier() if 'modifier' not in args else args['modifier']
         self._memory = [self.actor, self.critic, self.state_modifier]
         
-        assert('steps' in args)
+        assert('steps' and 'batch_size' in args)
         self.steps = args['steps']
+        self.batch_size = args['batch_size']
         
     def get_replay_buffer(self):
         total_score, steps, n = 0, 0, 0
@@ -96,7 +97,7 @@ class PPOAgent(AgentInterface):
             
             criterion = torch.nn.MSELoss()
             n = len(states)
-            batch_size = 64
+            batch_size = self.batch_size
             
             self.actor.train()
             self.critic.train()
