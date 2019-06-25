@@ -295,7 +295,7 @@ namespace BipedEnv{
 		double r_com = DPhy::exp_of_squared(com_diff,sig_com);
 		double r_ee = DPhy::exp_of_squared(ee_diff,sig_ee);
 
-		printf("%g %g %g %g\n", r_p, r_v, r_com, r_ee);
+//		printf("%g %g %g %g\n", r_p, r_v, r_com, r_ee);
 
 		double r_tot = r_p*r_v*r_com*r_ee;
 
@@ -361,6 +361,16 @@ class Agent{
 			step = 0;
 			done = false;
 		}
+
+		void setState(int step, Eigen::VectorXd &position, Eigen::VectorXd &velocity)
+		{
+			state.array[0] = step / (double)BipedEnv::targetData->frames;
+			for(size_t i = 0, j = 0; i < biped->getNumDofs(); i++, j++){
+				state.array[j*2+1] = i == 3 || i == 5 ? 0 :  position[i];
+				state.array[j*2+2] = velocity[i]; //velocity 
+			}
+		}
+
 		double applyAction(Action action)
 		{
 			double reward = 0;
@@ -386,16 +396,13 @@ class Agent{
 			Eigen::VectorXd curr_position = biped->getPositions();
 			Eigen::VectorXd curr_velocity = biped->getVelocities();
 
-			state.array[0] = step / (double)BipedEnv::targetData->frames;
-			for(size_t i = 0, j = 0; i < biped->getNumDofs(); i++, j++){
-				state.array[j*2+1] = i < 3? 0 : curr_position[i];
-				state.array[j*2+2] = curr_velocity[i];
-			}
+			setState(step, curr_position, curr_velocity);
+
 			reward = BipedEnv::get_reward(biped, step);
-			printf("reward: %lf\n", reward);
+//			printf("reward: %lf\n", reward);
 
 			if(reward < 0) done = true, reward = 0;
-			if(step >= BipedEnv::targetData->frames-2) done = tl = true;
+			if(step >= BipedEnv::targetData->frames-2) done = true; //tl = true;
 
 			return reward;
 		}
@@ -421,11 +428,7 @@ class Agent{
 
 			biped->computeForwardKinematics(true,true,false);
 
-			state.array[0] = 0;
-			for(size_t i = 0, j = 0; i < biped->getNumDofs(); i++, j++){
-				state.array[j*2+1] = i == 3 || i == 5 ? 0 :  position[i];
-				state.array[j*2+2] = velocity[i]; //velocity 
-			}
+			setState(step, position, velocity);
 		}
 		bool done, tl;
 		int action_size, state_size;
@@ -456,11 +459,6 @@ class MyWindow : public dart::gui::glut::SimWindow
 				default:
 					SimWindow::keyboard(key, x, y);
 			}
-		}
-
-		void draw() override
-		{
-			SimWindow::draw();
 		}
 
 	protected:
@@ -521,6 +519,7 @@ void render(){
 State reset()
 {
 	agent->resetWorld();
+	if(isRender) window->setWorld(agent->mWorld);
 	return agent->getState();
 }
 

@@ -5,6 +5,7 @@ add_compile_options(-std=gnu++11)
 add_compile_options(-Wdeprecated-declarations)
 add_compile_options(-lm)
 add_compile_options(-g)
+add_compile_options(-Ofast)
 
 get_filename_component(example_name biped NAME)
 
