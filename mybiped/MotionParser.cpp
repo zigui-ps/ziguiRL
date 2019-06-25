@@ -30,7 +30,7 @@ double myBVH::closest_pose(Eigen::VectorXd &position){
 	int nDofs = skel->getNumDofs();
 	double mn = 1e18, idx = 0;
 	
-	for(int i = 0; i+2 < motion.size(); i++){
+	for(int i = 0; i+3 < motion.size(); i++){
 		auto prev_motion = motion[i];
 		auto current_motion = motion[i+1];
 		// Region Effect
@@ -44,7 +44,7 @@ double myBVH::closest_pose(Eigen::VectorXd &position){
 		if(t < 0) dist = t0, tmp = 0;
 		else if(t > 1) dist = t2 + 2*t1 + t0, tmp = 1;
 		else dist = t2 * t*t2 + 2*t1*t + t0, tmp = t;
-		if(dist < mn) mn = dist, idx = tmp;
+		if(dist < mn) mn = dist, idx = tmp + i;
 	}
 	return idx;
 }

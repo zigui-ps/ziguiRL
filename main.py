@@ -8,7 +8,7 @@ from model import Actor, Critic
 import distribution
 import customenv.multipendulum as multipendulum
 #import customenv.customgym as customgym
-import bipedenv.biped as biped
+import mybiped.biped as biped
 import statemodifier
 import os, argparse
 from time import sleep

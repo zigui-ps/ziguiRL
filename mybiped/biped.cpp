@@ -411,7 +411,6 @@ class Agent{
 //			printf("reward: %lf\n", reward);
 
 			if(reward < 0) done = true, reward = 0;
-			if(step >= BipedEnv::targetData->frames-2) done = true; //tl = true;
 
 			return reward;
 		}
