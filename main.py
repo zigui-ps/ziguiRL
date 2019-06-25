@@ -7,7 +7,7 @@ import deepnetwork
 from model import Actor, Critic
 import distribution
 import customenv.multipendulum as multipendulum
-import customenv.customgym as customgym
+#import customenv.customgym as customgym
 import bipedenv.biped as biped
 import statemodifier
 import os, argparse
@@ -27,7 +27,7 @@ def argument_parse():
 
 def get_env(name):
     if name is None: return None
-    if name == "Hopper-v2": return customgym.PythonGym('Hopper-v2', 1000)
+#    if name == "Hopper-v2": return customgym.PythonGym('Hopper-v2', 1000)
     if name == "multipendulum": return multipendulum.MultiPendulum()
     if name == "biped": return bipedenv.Biped()
     assert(False)
