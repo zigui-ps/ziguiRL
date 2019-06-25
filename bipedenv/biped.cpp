@@ -353,7 +353,7 @@ class Agent{
 			// Make sure that the pendulum was found in the World
 			assert(biped != nullptr);
 
-			mController = std::make_unique<Controller>(biped);
+			mController = std::unique_ptr<Controller>(new Controller(biped));
 
 			state_size = (biped->getNumDofs()) * 2 + 1;
 			action_size = biped->getNumDofs() - 6;
@@ -410,7 +410,7 @@ class Agent{
 			mWorld = initial_world->clone();
 
 			biped = mWorld->getSkeleton("Humanoid");
-			mController = std::make_unique<Controller>(biped);
+			mController = std::unique_ptr<Controller>(new Controller(biped));
 
 			auto tmp = BipedEnv::getMotion(step);
 			Eigen::VectorXd position = std::get<0>(tmp);
