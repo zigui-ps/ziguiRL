@@ -317,7 +317,7 @@ namespace BipedEnv{
 		return State(std::get<0>(tmp), std::get<1>(tmp));
 	}
 
-	double get_reward(SkeletonPtr skel, Eigen::VectorXd prev_position){
+	double get_reward(SkeletonPtr skel, double idx){
 		/*
 			 Eigen::VectorXd prev_motion = motion[idx], current_motion = motion[idx+1];
 			 double dist = pose_distance(prev_state, current_state, prev_motion, current_motion, nDofs);
@@ -385,7 +385,7 @@ class Agent{
 			int nDofs = biped->getNumDofs();
 			Eigen::VectorXd prev_position = biped->getPositions();
 			
-			double idx = targetData->closest_pose(prev_position);
+			double idx = BipedEnv::targetData->closest_pose(prev_position);
 			Eigen::VectorXd act = biped->getPositions();
 			Eigen::VectorXd vel = BipedEnv::getVelocities(idx+1);
 
