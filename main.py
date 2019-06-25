@@ -8,7 +8,8 @@ from model import Actor, Critic
 import distribution
 import customenv.multipendulum as multipendulum
 #import customenv.customgym as customgym
-import mybiped.biped as biped
+import bipedenv.biped as bipedenv
+import mybiped.biped as mybiped
 import statemodifier
 import os, argparse
 from time import sleep
@@ -29,14 +30,15 @@ def get_env(name):
     if name is None: return None
 #    if name == "Hopper-v2": return customgym.PythonGym('Hopper-v2', 1000)
     if name == "multipendulum": return multipendulum.MultiPendulum()
-    if name == "biped": return bipedenv.Biped()
+    if name == "bipedenv": return bipedenv.Biped()
+    if name == "mybiped": return mybiped.Biped()
     assert(False)
 
 def main():
     args = argument_parse()
     env = get_env(args.env)
 
-    if env is None: env = biped.Biped()
+    if env is None: env = mybiped.Biped()
 
 #    env.env.seed(500)
 #    torch.manual_seed(500)
@@ -86,7 +88,7 @@ def main():
 
         action = agent.next_action(state)
         state, _, done, _, _ = env.step(action)
-#        sleep(0.05)
+        sleep(0.05)
         if done:
             print("END")
             state = env.reset()
