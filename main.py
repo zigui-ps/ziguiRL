@@ -6,11 +6,7 @@ import policy
 import deepnetwork
 from model import Actor, Critic
 import distribution
-import customenv.multipendulum as multipendulum
-#import customenv.customgym as customgym
-import bipedenv.biped as bipedenv
-import mybiped.biped as mybiped
-import statemodifier
+import customenv.customgym as customgym
 import os, argparse
 from time import sleep
 
@@ -26,42 +22,32 @@ def argument_parse():
 
     return parser.parse_args()
 
-def get_env(name):
-    if name is None: return None
-#    if name == "Hopper-v2": return customgym.PythonGym('Hopper-v2', 1000)
-    if name == "multipendulum": return multipendulum.MultiPendulum()
-    if name == "bipedenv": return bipedenv.Biped()
-    if name == "mybiped": return mybiped.Biped()
-    assert(False)
-
 def main():
     args = argument_parse()
-    env = get_env(args.env)
+    env = customgym.PythonGym('Hopper-v2', 1000)
 
-    if env is None: env = mybiped.Biped()
-
-#    env.env.seed(500)
-#    torch.manual_seed(500)
+    env.env.seed(500)
+    torch.manual_seed(500)
     
     o_size = env.observation_size()[0]
     a_size = env.action_size()[0]
 
-    actor_network = deepnetwork.CNN([o_size, 1024, 512, a_size], "actor")
+    actor_network = deepnetwork.CNN([o_size, 128, 128, a_size], "actor")
     actor_opt = optim.Adam(actor_network.parameters(), lr=0.0002) # actor lr_rate
 
-    dist_network = deepnetwork.CNN([o_size, 1024, 512, a_size], "dist", zeroInit=True)
-    dist_opt = optim.Adam(dist_network.parameters(), lr = 0.0003)
-    dist = distribution.NetGaussianDistribution(dist_network, dist_opt)
-    
-#    dist = distribution.FixedGaussianDistribution()
+#    dist_network = deepnetwork.CNN([o_size, 128, 128, a_size], "dist", zeroInit=True)
+#    dist_opt = optim.Adam(dist_network.parameters(), lr = 0.0003)
+#    dist = distribution.NetGaussianDistribution(dist_network, dist_opt)
 
+	dist = distribution.FixedGaussianDistribution()
+    
     actor = Actor(actor_network, actor_opt, dist)
     
-    critic_network = deepnetwork.CNN([o_size, 1024, 512, 1], "critic")
+    critic_network = deepnetwork.CNN([o_size, 128, 128, 1], "critic")
     critic_opt = optim.Adam(critic_network.parameters(), lr=0.0003) # critic lr_rate
     critic = Critic(critic_network, critic_opt)
         
-    agent = policy.PPOAgent(env, actor, critic, {'gamma' : 0.99, 'lamda' : 0.95, 'steps' : 20000, 'batch_size' : 1024, 'modifier' : statemodifier.ClassicModifier()}, args.render)
+    agent = policy.PPOAgent(env, actor, critic, {'gamma' : 0.99, 'lamda' : 0.95, 'steps' : 20000, 'batch_size' : 1024}, args.render)
 
     model_path = os.path.join(os.getcwd(),'save_model')
 
