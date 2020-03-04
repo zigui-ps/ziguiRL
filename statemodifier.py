@@ -33,7 +33,8 @@ class ClassicModifier():
         return self.modify(state)
 
     def modify(self, state):
-        if self._n == 1: norm = torch.zeros(state.size())
+        if self._n == 0: return state
+        elif self._n == 1: norm = torch.zeros(state.size())
         else: norm = (state - self._mean) / (1e-8 + torch.sqrt(torch.div(self._std, self._n-1)))
         return torch.clamp(norm, -5, 5)
 

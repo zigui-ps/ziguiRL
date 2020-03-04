@@ -14,9 +14,12 @@ class CNN(nn.Module):
         self.fc = nn.ModuleList(fc_list)
 
     def forward(self, x):
+        x.cuda()
         for i, fc in enumerate(self.fc):
             x = fc(x)
             if i != len(self.fc)-1:
                 x = F.relu(x)
-        return x
+#            else:
+#                x = F.tanh(x)
+        return x.cpu()
 

@@ -3,6 +3,9 @@ import torch.distributions as tdist
 import math
 
 class DistributionInterface():
+    def get_scale(self, state):
+        assert(False)
+
     def sample(self, mu, state):
         assert(False)
     
@@ -13,9 +16,6 @@ class DistributionInterface():
         pass
 
     def eval(self):
-        pass
-
-    def apply_loss(self, loss, retain_graph=False):
         pass
 
     def zero_grad(self):
@@ -31,53 +31,55 @@ class DistributionInterface():
         return {}
 
 class FixedGaussianDistribution(DistributionInterface):
-    def sample(self, mu, state):
-        # for simplify
-        std = torch.ones(mu.size(), dtype=torch.float32)
-        return tdist.Normal(mu, std).sample()
+    def __init__(self, dist, scale):
+        self.dist = dist
+        self.scale = scale
 
-    def log_density(self, act, mu, state):
-        std = torch.ones(mu.size(), dtype=torch.float32)
-        logstd = torch.log(std)
-        return -(act-mu)*(act-mu) / (2*std*std) - \
-                0.5*math.log(2*math.pi) - logstd
+    def get_scale(self, state):
+        return self.scale
+    
+    def sample(self, mu, state):
+        return self.dist(mu, self.scale).sample()
+
+    def log_prob(self, act, mu, state):
+        return self.dist(mu, self.scale).log_prob(act)
+    
+    def entropy(self, mu, state):
+        return self.dist(mu, self.scale).entropy()
 
 class NetGaussianDistribution(DistributionInterface):
-    def __init__(self, network, opt):
-        self._network = network
-        self._opt = opt
+    def __init__(self, dist, network, opt):
+        self.dist = dist
+        self.network = network
+        self.opt = opt
+
+    def get_scale(self, state):
+        return torch.exp(self.network(state.cuda()).cpu())
 
     def sample(self, mu, state):
-        logstd = self._network(state)
-        std = torch.exp(logstd)
-        return tdist.Normal(mu, std).sample()
+        return self.dist(mu, self.get_scale(state)).sample()
+
+    def log_prob(self, act, mu, state):
+        return self.dist(mu, self.get_scale(state)).log_prob(act)
     
-    def log_density(self, act, mu, state):
-        logstd = self._network(state)
-        std = torch.exp(logstd)
-        return -(act-mu)*(act-mu) / (2*std*std) - \
-                0.5*math.log(2*math.pi) - logstd
+    def entropy(self, mu, state):
+        return self.dist(mu, self.get_scale(state)).entropy()
 
     def train(self):
-        self._network.train()
+        self.network.train()
 
     def eval(self):
-        self._network.eval()
+        self.network.eval()
 
     def zero_grad(self):
-        self._opt.zero_grad()
+        self.opt.zero_grad()
 
     def step(self):
-        self._opt.step()
-
-    def apply_loss(self, loss, retain_graph=False):
-        self._opt.zero_grad()
-        loss.backward(retain_graph=retain_graph)
-        self._opt.step()
+        self.opt.step()
 
     def set_ckpt(self, ckpt):
         assert('netdist' in ckpt)
-        self._network.load_state_dict(ckpt['netdist'])
+        self.network.load_state_dict(ckpt['netdist'])
 
     def get_ckpt(self):
-        return {'netdist' : self._network.state_dict()}
+        return {'netdist' : self.network.state_dict()}

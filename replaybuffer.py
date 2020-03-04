@@ -25,6 +25,12 @@ class ReplayBuffer():
         self.action.append(action)
         self.reward.append(reward)
         self.done.append(done)
+
+    def merge(self, replay_buffer):
+        self.state += replay_buffer.state
+        self.action += replay_buffer.action
+        self.reward += replay_buffer.reward
+        self.done += replay_buffer.done
     
     # cap path
     def path_finish(self):
